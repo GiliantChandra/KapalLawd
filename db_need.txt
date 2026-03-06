@@ -1,0 +1,43 @@
+TABLE NEEDED :
+##################### SIMPLE #####################
+----CUST			: CUSTOMER
+  --CUST_ID PK	VARCHAR(13)
+  --NM		    VARCHAR(30)
+  --GNDR	    VARCHAR(1)
+  --CRT_DT	    TIMESTAMP
+
+----ADM				: ADMIN
+  --ADM_ID  PK	VARCHAR(13)
+  --NM		    VARCHAR(30)
+  --CRT_DT	    TIMESTAMP
+
+----FC_SHP			:FACE SHAPE
+  --SHP_ID  PK	VARCHAR(4)
+  --SHP_DESC	TEXT
+
+----HR_SHP			:HAIR TYPE
+  --HR_ID   PK	VARCHAR(4)
+  --HR_DESC	    TEXT
+
+##################### MIX #####################
+----TRX				:TRANSACTION	[Can make history table]
+  --TRX_ID  PK	VARCHAR(14)	--[YYYYMMDDHHnnnn]
+  --TRX_TM	    TIMESTAMP
+  --CUST_ID  PK VARCHAR(13)
+  --BRB_ID	    VARCHAR(5)	--[BRnnnn]
+  --PRICE	    INT
+  --STR_TM	    TIME
+  --FNS_TM	    TIME
+  	
+
+----ALG				:ALGORITMA	
+  --SHP_ID	PK  VARCHAR(4)
+  --HR_ID	PK  VARCHAR(4)
+  --DESC	    TEXT
+  --RANK	    INT
+
+#######################################################
+LEGEND :
+YYYY => Year	HH => Hour	n = Number
+MM   => Month	mm => Minute	
+DD   => Date	ss => Second
