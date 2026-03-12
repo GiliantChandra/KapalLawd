@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "701741613219",
+    "project_id": "kapallawd-70c45",
+    "storage_bucket": "kapallawd-70c45.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:701741613219:android:b40914c0b4868dd4fd7f16",
+        "android_client_info": {
+          "package_name": "com.example.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmabvmeF2IDKOmLOYcvUWk4BFnxmTmbGI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
