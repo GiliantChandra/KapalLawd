@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 import 'result_page.dart';
 
@@ -60,20 +62,33 @@ class _CapturePageState extends State<CapturePage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("Harap login terlebih dahulu.");
 
-      // TODO: Connect to Python ML server here first
-      // For now, we simulate the output image by using the input image
-      // In phase 4, 'resultImageFile' will be the output from Python API
-
-      // Simulate ML processing time
-      await Future.delayed(const Duration(seconds: 3));
+      // Connect to Python ML server (running locally on PC)
+      // Gunakan 10.0.2.2 jika menggunakan Android Emulator resmi, atau IP lokal (192.168.x.x) jika HP fisik
+      const String apiUrl = "http://10.0.2.2:8000/generate-hairstyle";
       
-      // Tahap Akhir Rekayasa: Simpan ke Firebase
-      // 1. Upload ke Storage
+      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      request.fields['user_id'] = user.uid;
+      request.fields['style_name'] = widget.styleName;
+      request.files.add(await http.MultipartFile.fromPath('image', _imageFile!.path));
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode != 200) {
+        throw Exception("Gagal terhubung ke AI Server. Error: ${response.body}");
+      }
+      
+      // Simpan file hasil ke temporary directory device
+      final documentDirectory = await getApplicationDocumentsDirectory();
+      final resultFile = File('${documentDirectory.path}/result_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await resultFile.writeAsBytes(response.bodyBytes);
+
+      // Tahap Akhir Rekayasa: Simpan HASIL dari AI ke Firebase Storage
       final storageRef = FirebaseStorage.instance
           .ref()
           .child('users/${user.uid}/history/${DateTime.now().millisecondsSinceEpoch}.jpg');
           
-      await storageRef.putFile(_imageFile!);
+      await storageRef.putFile(resultFile);
       final imageUrl = await storageRef.getDownloadURL();
 
       // 2. Simpan ke Firestore
@@ -96,7 +111,7 @@ class _CapturePageState extends State<CapturePage> {
         MaterialPageRoute(
           builder: (context) => ResultPage(
             styleName: widget.styleName,
-            originalImage: _imageFile!,
+            originalImage: resultFile,
           ),
         ),
       );

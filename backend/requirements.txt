@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-multipart
+opencv-python-headless
+numpy
+pillow
+firebase-admin
+requests
+diffusers
+transformers
+accelerate
+# PyTorch will be installed separately with CUDA support
