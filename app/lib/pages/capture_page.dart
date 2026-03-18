@@ -88,8 +88,9 @@ class _CapturePageState extends State<CapturePage> {
           .ref()
           .child('users/${user.uid}/history/${DateTime.now().millisecondsSinceEpoch}.jpg');
           
-      await storageRef.putFile(resultFile);
-      final imageUrl = await storageRef.getDownloadURL();
+      // Wajib gunakan TaskSnapshot agar aplikasi benar-benar menunggu upload selesai 100%
+      TaskSnapshot snapshot = await storageRef.putFile(resultFile);
+      final imageUrl = await snapshot.ref.getDownloadURL();
 
       // 2. Simpan ke Firestore
       await FirebaseFirestore.instance
