@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'catalog_page.dart';
+import 'history_page.dart';
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -55,9 +58,9 @@ class HomePage extends StatelessWidget {
               subtitle: 'Pick a hairstyle and try it on instantly',
               icon: Icons.auto_awesome_mosaic_rounded,
               onTap: () {
-                // TODO: Navigate to Catalog Page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Catalog Feature Coming Soon!')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CatalogPage()),
                 );
               },
             ),
