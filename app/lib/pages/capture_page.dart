@@ -64,7 +64,7 @@ class _CapturePageState extends State<CapturePage> {
 
       // Connect to Python ML server (running locally on PC)
       // Gunakan 10.0.2.2 jika menggunakan Android Emulator resmi, atau IP lokal (192.168.x.x) jika HP fisik
-      const String apiUrl = "https://cd085df676aaaf.lhr.life/generate-hairstyle";
+      const String apiUrl = "https://bc3290125743de.lhr.life/generate-hairstyle";
 
       
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
