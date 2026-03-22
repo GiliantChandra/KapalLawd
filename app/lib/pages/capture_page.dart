@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'result_page.dart';
 
@@ -62,10 +63,9 @@ class _CapturePageState extends State<CapturePage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("Harap login terlebih dahulu.");
 
-      // Connect to Python ML server (running locally on PC)
-      // Gunakan 10.0.2.2 jika menggunakan Android Emulator resmi, atau IP lokal (192.168.x.x) jika HP fisik
-      const String apiUrl = "https://bc3290125743de.lhr.life/generate-hairstyle";
-
+      // Connect to Python ML server (running locally on PC / Tunneling)
+      final prefs = await SharedPreferences.getInstance();
+      final String apiUrl = prefs.getString('api_url') ?? "http://192.168.100.140:8000/generate-hairstyle";
       
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       request.fields['user_id'] = user.uid;
@@ -79,30 +79,38 @@ class _CapturePageState extends State<CapturePage> {
         throw Exception("Gagal terhubung ke AI Server. Error: ${response.body}");
       }
       
-      // Simpan file hasil ke temporary directory device
+      // Ambil Metadata dari kecerdasan AI (Bentuk wajah & Style yang dipilih otomatis)
+      final String faceShape = response.headers['x-face-shape'] ?? 'Unknown';
+      final String appliedStyle = response.headers['x-style-applied'] ?? widget.styleName;
+      final String imageFilename = response.headers['x-image-filename'] ?? '';
+      
+      // Simpan file hasil ke temporary directory device (Untuk Preview di ResultPage Nanti)
       final documentDirectory = await getApplicationDocumentsDirectory();
       final resultFile = File('${documentDirectory.path}/result_${DateTime.now().millisecondsSinceEpoch}.jpg');
       await resultFile.writeAsBytes(response.bodyBytes);
 
-      // Tahap Akhir Rekayasa: Simpan HASIL dari AI ke Firebase Storage
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('users/${user.uid}/history/${DateTime.now().millisecondsSinceEpoch}.jpg');
-          
-      // Wajib gunakan TaskSnapshot agar aplikasi benar-benar menunggu upload selesai 100%
-      TaskSnapshot snapshot = await storageRef.putFile(resultFile);
-      final imageUrl = await snapshot.ref.getDownloadURL();
+      // KEAJAIBAN BARU: Tidak perlu Firebase Storage sama sekali!
+      // URL yang tadinya http://192.168.../generate-hairstyle kita sulap jadi http://192.168.../history/namafile.jpg
+      String imageUrl = "lokal_saja";
+      if (imageFilename.isNotEmpty) {
+        imageUrl = apiUrl.replaceAll('/generate-hairstyle', '/history/$imageFilename');
+      }
 
-      // 2. Simpan ke Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('history')
-          .add({
-        'styleName': widget.styleName,
-        'resultImageUrl': imageUrl,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      // 2. Simpan URL link langsung laptop tersebut ke Firestore Firebase
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('history')
+            .add({
+          'styleName': appliedStyle,
+          'faceShape': faceShape,
+          'resultImageUrl': imageUrl,
+          'createdAt': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 2));
+      } catch (e) {
+        debugPrint("Error (Terlewati/Timeout) riwayat Firestore: $e");
+      }
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -112,8 +120,10 @@ class _CapturePageState extends State<CapturePage> {
         context,
         MaterialPageRoute(
           builder: (context) => ResultPage(
-            styleName: widget.styleName,
+            styleName: appliedStyle,
+            faceShape: faceShape,
             originalImage: resultFile,
+            imageUrl: imageUrl,
           ),
         ),
       );

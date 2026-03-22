@@ -1,12 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'catalog_page.dart';
 import 'history_page.dart';
+import 'capture_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  void _showSettingsDialog(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    String currentUrl = prefs.getString('api_url') ?? "http://192.168.100.140:8000/generate-hairstyle";
+    TextEditingController controller = TextEditingController(text: currentUrl);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("AI Server Configuration"),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: "API URL",
+              hintText: "http://192.168.x.x:8000/generate-hairstyle",
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await prefs.setString('api_url', controller.text.trim());
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Server URL Saved Successfully!')),
+                );
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +59,11 @@ class HomePage extends StatelessWidget {
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Server Settings',
+            onPressed: () => _showSettingsDialog(context),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign Out',
@@ -74,9 +119,14 @@ class HomePage extends StatelessWidget {
               subtitle: 'Let AI analyze your face and suggest styles',
               icon: Icons.psychology_rounded,
               onTap: () {
-                // TODO: Navigate to AI Guide Page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('AI Recommendation Coming Soon!')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CapturePage(
+                      styleName: "Auto",
+                      catalogImagePath: "assets/katalog/middle_part.jpg", // Default placeholder
+                    ),
+                  ),
                 );
               },
             ),

@@ -72,44 +72,96 @@ class HistoryPage extends StatelessWidget {
               final imageUrl = data['resultImageUrl'] as String?;
               final styleName = data['styleName'] ?? 'Unknown Style';
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                        child: imageUrl != null
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, st) => const Icon(Icons.broken_image, color: Colors.white30),
-                              )
-                            : Container(
-                                color: Colors.black12,
-                                child: const Icon(Icons.broken_image, color: Colors.white30),
+              return InkWell(
+                onTap: () {
+                  if (imageUrl == 'lokal_saja') {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Foto ini aman tersimpan di Galeri/Memori HP Anda, tidak dicadangkan ke Cloud.')),
+                    );
+                  } else {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => Dialog(
+                        backgroundColor: Colors.transparent,
+                        insetPadding: const EdgeInsets.all(10),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            InteractiveViewer(
+                              panEnabled: true,
+                              boundaryMargin: const EdgeInsets.all(20),
+                              minScale: 0.5,
+                              maxScale: 3,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(imageUrl ?? '', fit: BoxFit.contain),
                               ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Text(
-                        styleName,
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                            ),
+                            Positioned(
+                              top: -10,
+                              right: -10,
+                              child: IconButton(
+                                icon: const Icon(Icons.cancel, color: Colors.white, size: 36),
+                                onPressed: () => Navigator.pop(ctx),
+                              ),
+                            ),
+                          ],
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                    );
+                  }
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                          child: (imageUrl != null && imageUrl != 'lokal_saja')
+                              ? Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (ctx, err, st) => const Icon(Icons.broken_image, color: Colors.white30),
+                                )
+                              : Container(
+                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.cloud_off_rounded, color: Theme.of(context).colorScheme.primary, size: 32),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Local\nSaved',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(fontSize: 10, color: Colors.white60),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          styleName,
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
