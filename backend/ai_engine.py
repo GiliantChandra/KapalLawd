@@ -160,19 +160,28 @@ class HairStyleGenerator:
             strength=0.98           # 98% Ambil alih mutlak area putih, jangan jiplak rambut asli user
         ).images[0]
         
-        # 5. Simpan hasil gambar
-        output_filename = f"generated_ai_{os.path.basename(original_image_path)}"
-        output_dir = os.path.dirname(original_image_path)
-        output_path = os.path.join(output_dir, output_filename)
+        # 5. Konversi gambar hasil (PIL) dari memory RAM langsung ke Teks Sandi Base64 (Untuk Ephemeral Cloud)
+        import io
+        import base64
         
-        # Pertahankan resolusi cerdas AI (512x512) agar tidak pecah/blur saat dikembalikan ke resolusi kamera HP (4K)
-        result_image.save(output_path)
+        buffered = io.BytesIO()
+        result_image.save(buffered, format="JPEG", quality=95)
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        
+        # Hapus file sampah
+        if os.path.exists("temp_resized.jpg"):
+            os.remove("temp_resized.jpg")
         
         return {
-            "result_path": output_path,
+            "image_base64": img_str,
             "face_shape": detected_shape,
             "style_applied": style_name
         }
 
-# Instansiasi singleton agar model tidak di-load berulang kali
-generator = HairStyleGenerator()
+_generator_instance = None
+
+def get_generator():
+    global _generator_instance
+    if _generator_instance is None:
+        _generator_instance = HairStyleGenerator()
+    return _generator_instance

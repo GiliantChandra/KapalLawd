@@ -63,7 +63,9 @@ class ResultPage extends StatelessWidget {
                             );
                           },
                         )
-                      : Image.file(originalImage, fit: BoxFit.cover),
+                      : (imageUrl.startsWith('/') || imageUrl.contains('data/user') || imageUrl.contains('var/mobile'))
+                          ? Image.file(File(imageUrl), fit: BoxFit.cover)
+                          : Image.file(originalImage, fit: BoxFit.cover),
                 ),
               ),
             ),

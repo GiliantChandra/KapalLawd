@@ -16,7 +16,7 @@ void main() async {
 }
 
 class HairApp extends StatelessWidget {
-  const HairApp({super.key});
+  const HairApp({super.key}); 
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -68,6 +69,7 @@ class _CapturePageState extends State<CapturePage> {
       final String apiUrl = prefs.getString('api_url') ?? "http://192.168.100.140:8000/generate-hairstyle";
       
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      request.maxRedirects = 9999; // Toleransi ekstrim sistem Polling Cloud Modal (Bisa memakan 300+ detik)
       request.fields['user_id'] = user.uid;
       request.fields['style_name'] = widget.styleName;
       request.files.add(await http.MultipartFile.fromPath('image', _imageFile!.path));
@@ -79,24 +81,23 @@ class _CapturePageState extends State<CapturePage> {
         throw Exception("Gagal terhubung ke AI Server. Error: ${response.body}");
       }
       
-      // Ambil Metadata dari kecerdasan AI (Bentuk wajah & Style yang dipilih otomatis)
-      final String faceShape = response.headers['x-face-shape'] ?? 'Unknown';
-      final String appliedStyle = response.headers['x-style-applied'] ?? widget.styleName;
-      final String imageFilename = response.headers['x-image-filename'] ?? '';
+      // KEAJAIBAN BARU (MODAL CLOUD): Decode JSON berisi sandi Base64 dari server
+      final responseData = jsonDecode(response.body);
+
+      final String faceShape = responseData['face_shape'] ?? 'Unknown';
+      final String appliedStyle = responseData['style_applied'] ?? widget.styleName;
+      final String base64String = responseData['image_base64'] ?? '';
       
-      // Simpan file hasil ke temporary directory device (Untuk Preview di ResultPage Nanti)
+      // Dekombinasi (Decode) sandi Base64 menjadi file foto sungguhan di memori permanen HP
       final documentDirectory = await getApplicationDocumentsDirectory();
-      final resultFile = File('${documentDirectory.path}/result_${DateTime.now().millisecondsSinceEpoch}.jpg');
-      await resultFile.writeAsBytes(response.bodyBytes);
+      final String safeLocalPath = '${documentDirectory.path}/ai_result_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final resultFile = File(safeLocalPath);
+      await resultFile.writeAsBytes(base64Decode(base64String));
 
-      // KEAJAIBAN BARU: Tidak perlu Firebase Storage sama sekali!
-      // URL yang tadinya http://192.168.../generate-hairstyle kita sulap jadi http://192.168.../history/namafile.jpg
-      String imageUrl = "lokal_saja";
-      if (imageFilename.isNotEmpty) {
-        imageUrl = apiUrl.replaceAll('/generate-hairstyle', '/history/$imageFilename');
-      }
+      // Gunakan URL lokal ini sebagai jembatan Firebase
+      String imageUrl = safeLocalPath;
 
-      // 2. Simpan URL link langsung laptop tersebut ke Firestore Firebase
+      // 2. Simpan path lokal murni ke Firestore Firebase (Bypass Cloud Storage Google 100%)
       try {
         await FirebaseFirestore.instance
             .collection('users')

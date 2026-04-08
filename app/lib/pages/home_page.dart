@@ -12,7 +12,7 @@ class HomePage extends StatelessWidget {
 
   void _showSettingsDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    String currentUrl = prefs.getString('api_url') ?? "http://192.168.100.140:8000/generate-hairstyle";
+    String currentUrl = prefs.getString('api_url') ?? "https://giliantchandra--kapallawd-ai-fastapi-endpoint.modal.run/generate-hairstyle";
     TextEditingController controller = TextEditingController(text: currentUrl);
 
     showDialog(
@@ -24,7 +24,7 @@ class HomePage extends StatelessWidget {
             controller: controller,
             decoration: const InputDecoration(
               labelText: "API URL",
-              hintText: "http://192.168.x.x:8000/generate-hairstyle",
+              hintText: "https://...modal.run/generate-hairstyle",
             ),
           ),
           actions: [

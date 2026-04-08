@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -94,7 +95,9 @@ class HistoryPage extends StatelessWidget {
                               maxScale: 3,
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(16),
-                                child: Image.network(imageUrl ?? '', fit: BoxFit.contain),
+                                child: (imageUrl ?? '').startsWith('http')
+                                    ? Image.network(imageUrl ?? '', fit: BoxFit.contain)
+                                    : Image.file(File(imageUrl ?? ''), fit: BoxFit.contain),
                               ),
                             ),
                             Positioned(
