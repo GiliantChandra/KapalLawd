@@ -7,16 +7,18 @@ import 'firebase_options.dart';
 import 'pages/auth_page.dart';
 import 'pages/home_page.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Debug logging to ensure Firebase initializes correctly
+  debugPrint('Firebase apps: ${Firebase.apps.map((app) => app.name).toList()}');
   runApp(const HairApp());
 }
 
 class HairApp extends StatelessWidget {
-  const HairApp({super.key}); 
+  const HairApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -50,11 +52,16 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // user is logged in
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         if (snapshot.hasData) {
           return const HomePage();
         }
-        // user is NOT logged in
+
         return const AuthPage();
       },
     );

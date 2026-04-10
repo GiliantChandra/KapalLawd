@@ -6,7 +6,19 @@ numpy
 pillow
 firebase-admin
 requests
+twilio
+python-dotenv
 diffusers
 transformers
 accelerate
+torch
+torchvision
+mediapipe
+dlib
+scikit-learn
+pandas
+matplotlib
+seaborn
+tensorflow
+keras
 # PyTorch will be installed separately with CUDA support

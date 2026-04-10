@@ -1,52 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'catalog_page.dart';
-import 'history_page.dart';
-import 'capture_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
-
-  void _showSettingsDialog(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    String currentUrl = prefs.getString('api_url') ?? "https://giliantchandra--kapallawd-ai-fastapi-endpoint.modal.run/generate-hairstyle";
-    TextEditingController controller = TextEditingController(text: currentUrl);
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("AI Server Configuration"),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: "API URL",
-              hintText: "https://...modal.run/generate-hairstyle",
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await prefs.setString('api_url', controller.text.trim());
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Server URL Saved Successfully!')),
-                );
-              },
-              child: const Text("Save"),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,11 +17,6 @@ class HomePage extends StatelessWidget {
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Server Settings',
-            onPressed: () => _showSettingsDialog(context),
-          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign Out',
@@ -99,12 +52,11 @@ class HomePage extends StatelessWidget {
             // Mode 1 Card (Catalog)
             _buildActionCard(
               context: context,
-              title: 'Hairstyle Catalog',
+              title: 'Hairstyle zCatalog',
               subtitle: 'Pick a hairstyle and try it on instantly',
               icon: Icons.auto_awesome_mosaic_rounded,
               onTap: () {
-                Navigator.push(
-                  context,
+                Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const CatalogPage()),
                 );
               },
@@ -119,40 +71,11 @@ class HomePage extends StatelessWidget {
               subtitle: 'Let AI analyze your face and suggest styles',
               icon: Icons.psychology_rounded,
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CapturePage(
-                      styleName: "Auto",
-                      catalogImagePath: "assets/katalog/middle_part.jpg", // Default placeholder
-                    ),
-                  ),
+                // TODO: Navigate to AI Guide Page
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('AI Recommendation Coming Soon!')),
                 );
               },
-            ),
-            
-            const SizedBox(height: 32),
-            
-            // History Button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HistoryPage()),
-                  );
-                },
-                icon: const Icon(Icons.history_rounded),
-                label: const Text('View My History'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
             ),
           ],
         ),
@@ -185,7 +108,7 @@ class HomePage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.primary.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
