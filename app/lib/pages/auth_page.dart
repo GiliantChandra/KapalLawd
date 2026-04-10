@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AuthPage extends StatefulWidget {
@@ -20,224 +18,117 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
-  bool _showOtpStep = false;
-  bool _otpCodeSent = false;
+  final _nameController = TextEditingController();
+  
   bool _isLoading = false;
-  String? _verificationId; // For Firebase Phone Auth
 
   // Function to validate password strength
   String? _validatePassword(String password) {
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    if (!RegExp(r'[A-Z]').hasMatch(password)) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:",./<>?]').hasMatch(password)) {
-      return 'Password must contain at least one special character';
-    }
+    if (password.length < 6) return 'Password minimal 6 karakter';
+    if (!RegExp(r'[A-Z]').hasMatch(password)) return 'Harus mengandung huruf besar (Kapital)';
+    if (!RegExp(r'[!@#$%^&*()_+\-=\[\]{}|;:",./<>?]').hasMatch(password)) return 'Harus mengandung karakter spesial/simbol';
     return null; // Valid
-  }
-
-  Future<bool> _verifyOtpWithFirebase(String smsCode) async {
-    if (_verificationId == null) {
-      _showSnack('Verifikasi belum dimulai. Silakan kirim ulang OTP.');
-      return false;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: smsCode,
-      );
-
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-
-      if (userCredential.user != null) {
-        final email = _emailController.text.trim();
-        final password = _passwordController.text.trim();
-        if (email.isNotEmpty && password.isNotEmpty) {
-          final emailCredential = EmailAuthProvider.credential(email: email, password: password);
-          await userCredential.user!.linkWithCredential(emailCredential);
-        }
-      }
-
-      _showSnack('Akun berhasil diverifikasi dan terhubung.');
-      return true;
-    } on FirebaseAuthException catch (e) {
-      _showSnack('Kode OTP salah atau gagal diverifikasi: ${e.message}');
-      return false;
-    } catch (e) {
-      _showSnack('Terjadi kesalahan saat verifikasi OTP: $e');
-      return false;
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _sendPhoneOtp() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty || !RegExp(r'^\+?\d{8,15}$').hasMatch(phone)) {
-      _showSnack('Masukkan nomor telepon yang valid dengan kode negara, misal +628123456789.');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _otpCodeSent = false;
-    });
-
-    final normalizedPhone = phone.startsWith('+') ? phone : '+62${phone.replaceFirst(RegExp(r'^0+'), '')}';
-
-    try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: normalizedPhone,
-        verificationCompleted: (credential) async {
-          if (!mounted) return;
-          _showSnack('Verifikasi otomatis berhasil.');
-          await FirebaseAuth.instance.signInWithCredential(credential);
-        },
-        verificationFailed: (error) {
-          if (!mounted) return;
-          debugPrint('Verification failed: ${error.code} - ${error.message}');
-          _showSnack('Gagal mengirim OTP: ${error.message}');
-        },
-        codeSent: (verificationId, resendToken) {
-          if (!mounted) return;
-          setState(() {
-            _verificationId = verificationId;
-            _showOtpStep = true;
-            _otpCodeSent = true;
-          });
-          _showSnack('OTP terkirim. Periksa SMS Anda.');
-        },
-        codeAutoRetrievalTimeout: (verificationId) {
-          _verificationId = verificationId;
-        },
-        timeout: const Duration(seconds: 60),
-      );
-    } catch (e) {
-      _showSnack('Gagal melakukan verifikasi telepon: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message, textAlign: TextAlign.center)));
   }
 
   Future<void> _submitAuth() async {
-    // For login, always sign in anonymously without validation
-    if (isLogin) {
-      setState(() => _isLoading = true);
-      final navigator = Navigator.of(context);
+    setState(() => _isLoading = true);
 
-      try {
-        await FirebaseAuth.instance
-            .signInAnonymously()
-            .timeout(const Duration(seconds: 30));
-        // Navigation will be handled by AuthGate StreamBuilder.
-        // If this page was pushed (e.g. from drawer), pop it.
-        if (mounted && navigator.canPop()) {
-          navigator.pop();
+    try {
+      if (isLogin) {
+        // ========================== MODE LOGIN ==========================
+        if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+          throw FirebaseAuthException(code: 'empty-fields', message: 'Harap isi Email dan Password Anda.');
         }
-      } on FirebaseAuthException catch (e) {
-        if (!mounted) return;
-        String errorMessage;
-        switch (e.code) {
-          case 'network-request-failed':
-            errorMessage = 'Network error. Check your internet connection.';
-            break;
-          default:
-            errorMessage = e.message ?? 'Authentication error';
+
+        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+
+        // Validasi Anti-Bypass: Pengguna dilarang masuk jika TAUTAN EMAIL belum di klik
+        if (!userCredential.user!.emailVerified) {
+          await FirebaseAuth.instance.signOut(); // Tendang keluar sementara
+          throw FirebaseAuthException(
+            code: 'email-not-verified', 
+            message: 'Akses Ditolak! Harap buka Gmail/Inbox Anda dan klik Tautan Verifikasi terlebih dahulu.'
+          );
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
+
+      } else {
+        // ========================== MODE SIGN UP (DAFTAR) ==========================
+        final email = _emailController.text.trim();
+        final password = _passwordController.text.trim();
+        final phone = _phoneController.text.trim();
+        final name = _nameController.text.trim();
+
+        if (email.isEmpty || password.isEmpty || phone.isEmpty || name.isEmpty) {
+          throw FirebaseAuthException(code: 'empty-fields', message: 'Harap lengkapi semua kolom.');
+        }
+        if (_passwordController.text != _confirmPasswordController.text) {
+          throw FirebaseAuthException(code: 'password-mismatch', message: 'Password tidak sama!');
+        }
+        final passwordError = _validatePassword(password);      
+        if (passwordError != null) {
+          throw FirebaseAuthException(code: 'weak-password', message: passwordError);
+        }
+        if (!RegExp(r'^\+?\d{8,15}$').hasMatch(phone)) {
+          throw FirebaseAuthException(code: 'invalid-phone', message: 'Nomor HP tidak valid.');
+        }
+
+        // 1. Daftarkan dan Buat Kunci UID di Sistem Google
+        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
         );
-      } on TimeoutException {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Request timed out. Check your internet connection and try again.')),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An unexpected error occurred: $e')),
-        );
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
+
+        // 2. Simpan Data Metadata (Nama, HP) ke Firestore Database
+        await FirebaseFirestore.instance.collection('User').doc(userCredential.user!.uid).set({
+          'Email': email,
+          'Phone': phone,
+          'Nama': name,
+          'Password': password, // PERINGATAN: TIDAK STANDAR AMAN UNTUK PRODUCTION REAL
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // 3. Tembakkan Peluru TAUTAN VERIFIKASI ke alamat Email pengguna 
+        await userCredential.user!.sendEmailVerification();
+        
+        // 4. Force Logout agar mereka tidak bisa nembus gerbang utama
+        await FirebaseAuth.instance.signOut();
+
+        _showSnack('🎉 PEMBUATAN AKUN SUKSES! Tautan aktivasi telah dikirim ke Email ($email). Harap buka kotak masuk Email/Spam Anda untuk mengaktifkannya!');
+        
+        // Pindah otomatis kembali ke tab Log In
+        setState(() {
+          isLogin = true;
+          _passwordController.clear();
+          _confirmPasswordController.clear();
+        });
       }
-      return;
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      _showSnack('Gagal: ${e.message}');
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Error tak terduga: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
 
-    // Validate inputs for sign up
-    if (_emailController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email')),
-      );
-      return;
-    }
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your phone number')),      
-      );
-      return;
-    }
-    if (!RegExp(r'^\+?\d{8,15}$').hasMatch(phone)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Phone number must include country code and be 8 to 15 digits long')),
-      );
-      return;
-    }
-    if (!_showOtpStep) {
-      if (_passwordController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter your password')),        
-        );
-        return;
-      }
-      if (_passwordController.text != _confirmPasswordController.text) {      
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Passwords do not match')),
-        );
-        return;
-      }
-      final passwordError = _validatePassword(_passwordController.text);      
-      if (passwordError != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(passwordError)),
-        );
-        return;
-      }
-
-      await _sendPhoneOtp();
-      return;
-    }
-
-    if (_otpController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the OTP code')),
-      );
-      return;
-    }
-
-    final verified = await _verifyOtpWithFirebase(_otpController.text.trim());
-    if (!verified) {
-      return;
-    }
-
-    final navigator = Navigator.of(context);
-    if (mounted && navigator.canPop()) {
-      navigator.pop();
-    }
-    return;
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _phoneController.dispose();
+    _nameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -251,7 +142,7 @@ class _AuthPageState extends State<AuthPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.content_cut_rounded,
+                  Icons.mark_email_read_rounded,
                   size: 80,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -264,72 +155,34 @@ class _AuthPageState extends State<AuthPage> {
                     letterSpacing: 1.2,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  isLogin ? 'Masuk dan jelajahi gaya AI Anda.' : 'Pendaftaran dengan Verifikasi Gmail',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70),
+                ),
                 const SizedBox(height: 48),
                 
-                // Email, phone and password fields (only for sign up)
+                // Fields Mode Sign Up Saja
                 if (!isLogin) ...[
-                  // Email field
                   TextField(
-                    controller: _emailController,
+                    controller: _nameController,
                     decoration: InputDecoration(
-                      hintText: 'Email address',
+                      hintText: 'Nama Lengkap',
                       filled: true,
                       fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: const Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      prefixIcon: const Icon(Icons.person_outline),
                     ),
-                    keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: 16),
-
-                  // Password field
-                  TextField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      hintText: 'Password',
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: const Icon(Icons.lock_outline),
-                    ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Confirm Password field
-                  TextField(
-                    controller: _confirmPasswordController,
-                    decoration: InputDecoration(
-                      hintText: 'Confirm Password',
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: const Icon(Icons.lock_outline),
-                    ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Phone number field
                   TextField(
                     controller: _phoneController,
                     decoration: InputDecoration(
-                      hintText: 'Phone number (+628123456789)',
+                      hintText: 'Nomor HP (+62...)',
                       filled: true,
                       fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       prefixIcon: const Icon(Icons.phone_android_outlined),     
                     ),
                     keyboardType: TextInputType.phone,
@@ -341,55 +194,51 @@ class _AuthPageState extends State<AuthPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // OTP fields (only when OTP step is shown)
-                if (_showOtpStep) ...[
-                  Text(
-                    'Masukkan kode OTP yang dikirim ke ${_phoneController.text.trim()}',
-                    style: TextStyle(color: Colors.white70),
-                    textAlign: TextAlign.center,
+                // Fields Mode Ganda (Login & Sign Up)
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    hintText: 'Alamat Email',
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.surface,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    prefixIcon: const Icon(Icons.email_outlined),
                   ),
-                  const SizedBox(height: 16),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    hintText: 'Password',
+                    filled: true,
+                    fillColor: Theme.of(context).colorScheme.surface,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                  ),
+                  obscureText: true,
+                ),
+                const SizedBox(height: 16),
+
+                // Confirm Password (Sign Up Saja)
+                if (!isLogin) ...[
                   TextField(
-                    controller: _otpController,
+                    controller: _confirmPasswordController,
                     decoration: InputDecoration(
-                      hintText: 'OTP code (6 digits)',
+                      hintText: 'Ulangi Password',
                       filled: true,
                       fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: const Icon(Icons.message_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      prefixIcon: const Icon(Icons.password_rounded),
                     ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
+                    obscureText: true,
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _sendPhoneOtp,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Colors.black87,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text('Kirim Ulang OTP', textAlign: TextAlign.center),
-                        ),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 32),
+                ] else ...[
                   const SizedBox(height: 16),
                 ],
-                
-                // Submit button
+
+                // Tombol Puncak Aksi
                 SizedBox(
                   width: double.infinity,
                   height: 54,
@@ -398,45 +247,33 @@ class _AuthPageState extends State<AuthPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.black87,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
                     child: _isLoading 
                       ? const CircularProgressIndicator(color: Colors.black87)
                       : Text(
-                          isLogin ? 'Sign In' : _showOtpStep ? 'Confirm' : 'Sign Up',
-                          style: const TextStyle(
-                            fontSize: 16, 
-                            fontWeight: FontWeight.bold,
-                          ),
+                          isLogin ? 'Sign In' : 'Daftar Sekarang',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                   ),
                 ),
                 
                 const SizedBox(height: 24),
                 
-                // Toggle auth mode
+                // Opsi Penukar Layar
                 TextButton(
                   onPressed: () {
                     setState(() {
                       isLogin = !isLogin;
-                      _showOtpStep = false;
-                      _otpCodeSent = false;
-                      _otpController.clear();
                       if (isLogin) {
-                        _phoneController.clear();
                         _passwordController.clear();
                         _confirmPasswordController.clear();
-                        _emailController.clear();
                       }
                     });
                   },
                   child: Text(
-                    isLogin 
-                      ? "Don't have an account? Sign Up" 
-                      : "Already have an account? Sign In",
+                    isLogin ? "Belum punya akun? Sign Up" : "Sudah punya akun? Sign In",
                     style: TextStyle(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
