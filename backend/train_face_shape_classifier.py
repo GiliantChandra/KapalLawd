@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 class FaceShapeTrainer:
     def __init__(self):
-        self.face_shapes = ['Oval', 'Round', 'Square', 'Heart', 'Diamond']
+        self.face_shapes = ['Oval', 'Round', 'Square', 'Heart', 'Oblong']
         self.mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
             static_image_mode=True,
             max_num_faces=1,
@@ -38,7 +38,8 @@ class FaceShapeTrainer:
 
         print("🔮 [PROSES I] Menggali dataset dan merekam bentuk tulang wajah melalui MediaPipe...")
         for shape_idx, shape in enumerate(self.face_shapes):
-            shape_path = os.path.join(dataset_path, shape.lower())
+            # Karena Linux Case-Sensitive, pastikan nama foldernya sama PERSIS kapitalisasinya
+            shape_path = os.path.join(dataset_path, shape)
             if not os.path.exists(shape_path):
                 print(f"⚠️ Peringatan: Folder Wajah {shape_path} Kosong/Tidak Ditemukan")
                 continue

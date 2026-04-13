@@ -165,8 +165,9 @@ class _AuthPageState extends State<AuthPage> {
                 
                 // Fields Mode Sign Up Saja
                 if (!isLogin) ...[
-                  TextField(
+                  TextFormField(
                     controller: _nameController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       hintText: 'Nama Lengkap',
                       filled: true,
@@ -174,10 +175,12 @@ class _AuthPageState extends State<AuthPage> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       prefixIcon: const Icon(Icons.person_outline),
                     ),
+                    validator: (val) => val == null || val.trim().isEmpty ? 'Nama tidak boleh kosong' : null,
                   ),
                   const SizedBox(height: 16),
-                  TextField(
+                  TextFormField(
                     controller: _phoneController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       hintText: 'Nomor HP (+62...)',
                       filled: true,
@@ -190,13 +193,15 @@ class _AuthPageState extends State<AuthPage> {
                       FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
                       LengthLimitingTextInputFormatter(15),
                     ],
+                    validator: (val) => val == null || !RegExp(r'^\+?\d{8,15}$').hasMatch(val) ? 'Masukkan 8-15 digit nomor telepon yang valid' : null,
                   ),
                   const SizedBox(height: 16),
                 ],
 
                 // Fields Mode Ganda (Login & Sign Up)
-                TextField(
+                TextFormField(
                   controller: _emailController,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   decoration: InputDecoration(
                     hintText: 'Alamat Email',
                     filled: true,
@@ -205,10 +210,16 @@ class _AuthPageState extends State<AuthPage> {
                     prefixIcon: const Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) return 'Email wajib diisi';
+                    if (!val.contains('@') || !val.contains('.')) return 'Format email tidak valid';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                TextFormField(
                   controller: _passwordController,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   decoration: InputDecoration(
                     hintText: 'Password',
                     filled: true,
@@ -217,13 +228,19 @@ class _AuthPageState extends State<AuthPage> {
                     prefixIcon: const Icon(Icons.lock_outline),
                   ),
                   obscureText: true,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Password wajib diisi';
+                    if (!isLogin) return _validatePassword(val);
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
 
                 // Confirm Password (Sign Up Saja)
                 if (!isLogin) ...[
-                  TextField(
+                  TextFormField(
                     controller: _confirmPasswordController,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(
                       hintText: 'Ulangi Password',
                       filled: true,
@@ -232,6 +249,10 @@ class _AuthPageState extends State<AuthPage> {
                       prefixIcon: const Icon(Icons.password_rounded),
                     ),
                     obscureText: true,
+                    validator: (val) {
+                      if (val != _passwordController.text) return 'Password tidak cocok!';
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 32),
                 ] else ...[

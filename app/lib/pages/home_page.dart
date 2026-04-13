@@ -68,12 +68,16 @@ class HomePage extends StatelessWidget {
             _buildActionCard(
               context: context,
               title: 'AI Recommendation',
-              subtitle: 'Let AI analyze your face and suggest styles',
+              subtitle: 'Kecerdasan Buatan akan memilihkan mahakarya terbaik.',
               icon: Icons.psychology_rounded,
               onTap: () {
-                // TODO: Navigate to AI Guide Page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('AI Recommendation Coming Soon!')),
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CapturePage(
+                      styleName: "Masterpiece Signature Fade", 
+                      catalogImagePath: "assets/katalog/edgar_cut.jpg",
+                    ),
+                  ),
                 );
               },
             ),

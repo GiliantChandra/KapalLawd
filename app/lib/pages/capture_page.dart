@@ -66,7 +66,7 @@ class _CapturePageState extends State<CapturePage> {
 
       // Connect to Python ML server (running locally on PC / Tunneling)
       final prefs = await SharedPreferences.getInstance();
-      final String apiUrl = prefs.getString('api_url') ?? "http://192.168.100.140:8000/generate-hairstyle";
+      final String apiUrl = prefs.getString('api_url') ?? "https://giliantchandra--kapallawd-ai-fastapi-endpoint.modal.run/generate-hairstyle";
       
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       request.maxRedirects = 9999; // Toleransi ekstrim sistem Polling Cloud Modal (Bisa memakan 300+ detik)
