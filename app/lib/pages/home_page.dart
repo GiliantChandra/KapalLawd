@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'catalog_page.dart';
+import 'capture_page.dart';
+import 'history_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -17,6 +19,15 @@ class HomePage extends StatelessWidget {
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded),
+            tooltip: 'Riwayat Transmutasi',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const HistoryPage()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign Out',
@@ -68,13 +79,13 @@ class HomePage extends StatelessWidget {
             _buildActionCard(
               context: context,
               title: 'AI Recommendation',
-              subtitle: 'Kecerdasan Buatan akan memilihkan mahakarya terbaik.',
+              subtitle: 'Kecerdasan Buatan akan menebak bentuk wajah dan memilihkan mahakarya terbaik.',
               icon: Icons.psychology_rounded,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const CapturePage(
-                      styleName: "Masterpiece Signature Fade", 
+                    builder: (context) => CapturePage(
+                      styleName: "AI_RECOMMENDATION", 
                       catalogImagePath: "assets/katalog/edgar_cut.jpg",
                     ),
                   ),

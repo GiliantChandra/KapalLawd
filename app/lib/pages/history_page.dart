@@ -128,11 +128,17 @@ class HistoryPage extends StatelessWidget {
                         child: ClipRRect(
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                           child: (imageUrl != null && imageUrl != 'lokal_saja')
-                              ? Image.network(
-                                  imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (ctx, err, st) => const Icon(Icons.broken_image, color: Colors.white30),
-                                )
+                              ? (imageUrl.startsWith('http') 
+                                  ? Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (ctx, err, st) => const Icon(Icons.broken_image, color: Colors.white30),
+                                    )
+                                  : Image.file(
+                                      File(imageUrl),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (ctx, err, st) => const Icon(Icons.broken_image, color: Colors.white30),
+                                    ))
                               : Container(
                                   color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                                   child: Column(

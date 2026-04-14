@@ -64,12 +64,17 @@ class _CapturePageState extends State<CapturePage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("Harap login terlebih dahulu.");
 
-      // Connect to Python ML server (running locally on PC / Tunneling)
-      final prefs = await SharedPreferences.getInstance();
-      final String apiUrl = prefs.getString('api_url') ?? "https://giliantchandra--kapallawd-ai-fastapi-endpoint.modal.run/generate-hairstyle";
+      // KITA PAKSA TEMBAK COLAB SECARA DINAMIS VIA FIREBASE!
+      // Mengambil URL secara 'Over The Air' dari kontrol pusat Firebase Firestore.
+      final configSnapshot = await FirebaseFirestore.instance.collection('config').doc('api').get();
+      final String apiUrl = configSnapshot.data()?['url'] ?? "https://forty-pets-vanish.loca.lt/generate-hairstyle";
+
       
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
-      request.maxRedirects = 9999; // Toleransi ekstrim sistem Polling Cloud Modal (Bisa memakan 300+ detik)
+      request.maxRedirects = 9999;
+      // Menembus layar peringatan phishing milik Localtunnel
+      request.headers['Bypass-Tunnel-Reminder'] = 'true';
+      request.headers['User-Agent'] = 'KapalLawd-Mobile';
       request.fields['user_id'] = user.uid;
       request.fields['style_name'] = widget.styleName;
       request.files.add(await http.MultipartFile.fromPath('image', _imageFile!.path));

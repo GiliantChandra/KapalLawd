@@ -10,7 +10,7 @@ from tensorflow.keras.models import Model
 from PIL import Image, ImageOps
 from diffusers import StableDiffusionInpaintPipeline
 import json
-from typing import List, Dict, dict
+from typing import List, Dict
 
 class AdvancedHairStyleGenerator:
     def __init__(self):
@@ -86,12 +86,10 @@ class AdvancedHairStyleGenerator:
             # =========================================================
             if self.face_shape_model is not None:
                 try:
-                    # 1. Olah Gambar 224x224 (Input Pintu 1)
                     img_resized = cv2.resize(rgb_image, (224, 224))
                     img_normalized = img_resized.astype(np.float32) / 255.0
                     img_input = np.expand_dims(img_normalized, axis=0)
                     
-                    # 2. Olah 300 Kordinat (Input Pintu 2)
                     landmark_features = []
                     for lm in landmarks[:100]:
                         landmark_features.extend([lm.x, lm.y, lm.z])
@@ -100,7 +98,6 @@ class AdvancedHairStyleGenerator:
                         landmark_features.extend([0.0] * (300 - len(landmark_features)))
                     lm_input = np.expand_dims(np.array(landmark_features), axis=0)
                     
-                    # 3. Prediksi Dual Core
                     predictions = self.face_shape_model.predict([img_input, lm_input], verbose=0)
                     shape_labels = ['Oval', 'Round', 'Square', 'Heart', 'Oblong']
                     detected_shape = shape_labels[np.argmax(predictions[0])]
@@ -108,11 +105,9 @@ class AdvancedHairStyleGenerator:
                 except Exception as e:
                     print(f"⚠️ Peringatan: Otak gagal menebak bentuk wajah: {e}")
             
-            # Kordinat Inti Wajah
             x_coords = [int(l.x * w) for l in landmarks]
             y_coords = [int(l.y * h) for l in landmarks]
             
-            # Cari Batas Anatomi Tertinggi & Terendah
             min_x, max_x = max(0, min(x_coords)), min(w, max(x_coords))
             min_y, max_y = max(0, min(y_coords)), min(h, max(y_coords))
             
@@ -121,30 +116,28 @@ class AdvancedHairStyleGenerator:
             center_x = min_x + face_width // 2
             center_y = min_y + face_height // 2
 
-            # 1. PROTEKSI ANATOMI WAJAH (HITAM) - Bentuk Telur Polos
-            axis_x = int(face_width * 0.55)  # Pas menutupi pipi ke pipi
-            axis_y = int(face_height * 0.6)  # Menutupi alis ke dagu (biarkan jidat atas putih)
-            # Oval Pelindung tepat di wajah tengah
-            cv2.ellipse(mask, (center_x, center_y), (axis_x, axis_y), 0, 0, 360, 0, -1)
+            # REVOLUSI MASKING: JANGAN INPAINT BACKGROUND, HANYA INPAINT RAMBUT!
+            # 1. Mulai dengan kanvas HITAM (Seluruh foto dipertahankan)
+            mask = np.zeros((h, w), dtype=np.uint8)
             
-            # 2. PROTEKSI BADAN/BAJU (HITAM) - Agar Stable Diffusion tidak mengganti baju
-            # Lindungi semua area dari leher ke bawah
-            batas_batas_leher = center_y + int(face_height * 0.65)
-            # Buat trapesium pengaman di bahu
-            pts = np.array([
-                [center_x - int(face_width*1.5), h], 
-                [center_x + int(face_width*1.5), h],
-                [center_x + axis_x, batas_batas_leher],
-                [center_x - axis_x, batas_batas_leher]
-            ], np.int32)
-            cv2.fillPoly(mask, [pts], 0)
+            # 2. Buat HELM RAMBUT PUTIH (Hanya area ini yang boleh disentuh AI)
+            hair_center_y = center_y - int(face_height * 0.3)
+            hair_axis_x = int(face_width * 0.95)  # Lebar helm menutupi telinga/cambang
+            hair_axis_y = int(face_height * 0.9)  # Tinggi helm menutupi rambut atas
+            cv2.ellipse(mask, (center_x, hair_center_y), (hair_axis_x, hair_axis_y), 0, 0, 360, 255, -1)
 
-            # Pelembutan Batas (Blur) agar hasil rambut AI dan wajah menyatu sempurna tanpa garis kasar
+            # 3. LINDUNGI WAJAH KEMBALI KE HITAM (Timpa bagian helm yang mengenai muka)
+            face_axis_x = int(face_width * 0.55)
+            face_axis_y = int(face_height * 0.5) 
+            cv2.ellipse(mask, (center_x, center_y), (face_axis_x, face_axis_y), 0, 0, 360, 0, -1)
+
+            # Pelembutan Batas (Blur) agar menyatu sempurna
             mask = cv2.GaussianBlur(mask, (41, 41), 0)
         else:
-            # Fallback jika wajah gagal terdeteksi (Gunakan perkiraan rasio)
-            cv2.ellipse(mask, (w//2, h//2 + int(h*0.1)), (int(w*0.3), int(h*0.35)), 0, 0, 360, 0, -1)
-            cv2.rectangle(mask, (0, h//2 + int(h*0.4)), (w, h), 0, -1)
+            # Fallback jika wajah gagal terdeteksi
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.ellipse(mask, (w//2, h//2 - int(h*0.2)), (int(w*0.4), int(h*0.4)), 0, 0, 360, 255, -1)
+            cv2.ellipse(mask, (w//2, h//2), (int(w*0.25), int(h*0.3)), 0, 0, 360, 0, -1)
             mask = cv2.GaussianBlur(mask, (21, 21), 0)
 
         # Kembalikan Masker KELABU sebagai Objek PIL standard Inpainting
@@ -172,14 +165,37 @@ class AdvancedHairStyleGenerator:
         # 2. PROSES BENTUK WAJAH DENGAN KECERDASAN BUATAN + MASKING
         mask_image, detected_shape = self.analyze_face_and_mask(img_bgr)
 
-        # 3. MANTRA PROMPT ESTETIK TINGGI
-        clean_style = style_name.replace('_', ' ')
-        prompt = f"A photorealistic, highly detailed 8k portrait of an attractive man with an absolute perfect {clean_style} haircut fashion. "
-        
-        # ==============================================================
+        # SAKTI: INTERCEPTOR AI RECOMMENDATION
+        applied_style = style_name
+        if style_name == "AI_RECOMMENDATION":
+            recommendation_map = {
+                'Oval': 'Textured Fringe',
+                'Round': 'Pompadour Fade',
+                'Square': 'Buzz Cut',
+                'Heart': 'Classic Side Part',
+                'Oblong': 'Slicked Back Undercut'
+            }
+            applied_style = recommendation_map.get(detected_shape, 'Masterpiece Signature Fade')
+            print(f"🤖 [AI ADVISOR] Mendeteksi wajah {detected_shape}, merekomendasikan: {applied_style}")
+            clean_style = applied_style.replace('_', ' ')
+        else:
+            clean_style = style_name.replace('_', ' ')
+
+        # 3. MANTRA PROMPT ESTETIK TINGGI + NEGATIVE PROMPT KHUSUS
+        prompt = f"RAW photo, highly detailed, ({clean_style} haircut:1.5), photorealistic portrait of an attractive man having a {clean_style} hairstyle. "
+        negative_prompt = "deformed, ugly, bad anatomy, bad lighting, disconnected hair, floating hair, extra faces, extra ears, crossed eyes, unblended, cartoon, illustration, low resolution, artifacts"
+
         # [KUNCI RAHASIA: SINKRONISASI FACE SHAPE & STABLE DIFFUSION]
         # ==============================================================
         prompt += f"The haircut is masterfully tailored by a professional barber to perfectly fit a {detected_shape.lower()} face shape. "
+
+        is_short_hair = any(word in clean_style.lower() for word in ['buzz', 'crop', 'edgar', 'fade', 'short'])
+        
+        if is_short_hair:
+            # Hanya berikan negative prompt agar tidak murni jadi belah tengah / rambut tebal, TAPI JANGAN paksakan prompt botak ke Edgar/Crop!
+            negative_prompt += ", long hair, shoulder length, mop top, messy voluminous hair, fluffy hair, middle part, curtain bangs, shaggy"
+        else:
+            negative_prompt += ", bald, extremely short hair, shaved head, military cut"
 
         if "Masterpiece" in clean_style or "AI Auto" in clean_style:
             if detected_shape == "Round":
@@ -197,20 +213,22 @@ class AdvancedHairStyleGenerator:
             if "Mullet" in clean_style:
                 prompt += "Short messy textured hair on top, extremely long flowing hair on the back of the neck falling down, 80s rock aesthetic. "
             elif "Buzz" in clean_style:
-                prompt += "Very short shaved military buzz cut, scalp barely visible, aggressive sharp edges. "
+                prompt += "EXTREMELY SHORT HAIR, MILITARY BUZZ CUT, VERY TIGHT SKIN FADE ON SIDES, VISIBLE SCALP, BALD SIDES. "
             elif "Middle" in clean_style:
-                prompt += "Symmetrical center parted hair, e-boy style curtain bangs falling beautifully over the forehead. "
+                prompt += "Perfectly symmetrical center-parted hair for men, evenly divided in the exact center, 50/50 curtain bangs falling beautifully on both left and right sides of the forehead. "
             elif "Side" in clean_style:
                 prompt += "Classic dapper side part comb over, neat and polished business professional hair. "
             elif "French" in clean_style:
-                prompt += "Tight skin fade sides, textured flat fringe dropping neatly straight over the forehead, trendy crop. "
+                prompt += "Textured short top, messy crop, tight skin fade on sides, short fringe resting on forehead. "
+            elif "Edgar" in clean_style:
+                prompt += "Textured fluffy top, blunt straight even cut fringe over the forehead, high bare skin fade on the sides. "
+            elif "Fade" in clean_style:
+                prompt += "Thick styled hair on top, perfectly blended clean skin fade on the sides and back. "
             elif "Faux" in clean_style:
                 prompt += "Spiky pushed-up punk crest in the middle, clean faded extremely short sides, voluminous faux hawk. "
 
-        prompt += "High end studio lighting, professional photography, hyper-detailed hair strands perfectly attached to scalp, seamless blending."
-        # Singkirkan aura mutan dari hasil AI
-        negative_prompt = "deformed, ugly, bad anatomy, bad lighting, disconnected hair, floating hair, extra faces, extra ears, crossed eyes, unblended, cartoon, illustration, low resolution, artifacts"
-
+        prompt += "(High end studio lighting, professional portrait photography:1.1), hyper-detailed."
+        
         # 4. PENYEPUHAN TENSOR GPU (Stable Diffusion VRAM Inpainting Magic)
         print("🔥 MEMBAKAR KE DALAM GPU Raksasa CUDA...")
         try:
@@ -236,7 +254,7 @@ class AdvancedHairStyleGenerator:
         return {
             "image_base64": img_str,
             "face_shape": detected_shape,
-            "style_applied": style_name
+            "style_applied": applied_style
         }
 
 # Global Singleton
