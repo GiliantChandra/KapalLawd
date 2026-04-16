@@ -67,7 +67,7 @@ class _CapturePageState extends State<CapturePage> {
       // KITA PAKSA TEMBAK COLAB SECARA DINAMIS VIA FIREBASE!
       // Mengambil URL secara 'Over The Air' dari kontrol pusat Firebase Firestore.
       final configSnapshot = await FirebaseFirestore.instance.collection('config').doc('api').get();
-      final String apiUrl = configSnapshot.data()?['url'] ?? "https://forty-pets-vanish.loca.lt/generate-hairstyle";
+      final String apiUrl = (configSnapshot.data()?['url'] ?? "https://forty-pets-vanish.loca.lt/generate-hairstyle").toString().trim();
 
       
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));

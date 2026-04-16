@@ -17,7 +17,6 @@ class _AuthPageState extends State<AuthPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
   
   bool _isLoading = false;
@@ -61,12 +60,11 @@ class _AuthPageState extends State<AuthPage> {
 
       } else {
         // ========================== MODE SIGN UP (DAFTAR) ==========================
-        final email = _emailController.text.trim();
+        final email    = _emailController.text.trim();
         final password = _passwordController.text.trim();
-        final phone = _phoneController.text.trim();
-        final name = _nameController.text.trim();
+        final name     = _nameController.text.trim();
 
-        if (email.isEmpty || password.isEmpty || phone.isEmpty || name.isEmpty) {
+        if (email.isEmpty || password.isEmpty || name.isEmpty) {
           throw FirebaseAuthException(code: 'empty-fields', message: 'Harap lengkapi semua kolom.');
         }
         if (_passwordController.text != _confirmPasswordController.text) {
@@ -75,9 +73,6 @@ class _AuthPageState extends State<AuthPage> {
         final passwordError = _validatePassword(password);      
         if (passwordError != null) {
           throw FirebaseAuthException(code: 'weak-password', message: passwordError);
-        }
-        if (!RegExp(r'^\+?\d{8,15}$').hasMatch(phone)) {
-          throw FirebaseAuthException(code: 'invalid-phone', message: 'Nomor HP tidak valid.');
         }
 
         // 1. Daftarkan dan Buat Kunci UID di Sistem Google
@@ -89,9 +84,7 @@ class _AuthPageState extends State<AuthPage> {
         // 2. Simpan Data Metadata (Nama, HP) ke Firestore Database
         await FirebaseFirestore.instance.collection('User').doc(userCredential.user!.uid).set({
           'Email': email,
-          'Phone': phone,
           'Nama': name,
-          'Password': password, // PERINGATAN: TIDAK STANDAR AMAN UNTUK PRODUCTION REAL
           'createdAt': FieldValue.serverTimestamp(),
         });
 
@@ -126,7 +119,6 @@ class _AuthPageState extends State<AuthPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _phoneController.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -176,24 +168,6 @@ class _AuthPageState extends State<AuthPage> {
                       prefixIcon: const Icon(Icons.person_outline),
                     ),
                     validator: (val) => val == null || val.trim().isEmpty ? 'Nama tidak boleh kosong' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _phoneController,
-                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                    decoration: InputDecoration(
-                      hintText: 'Nomor HP (+62...)',
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.phone_android_outlined),     
-                    ),
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
-                      LengthLimitingTextInputFormatter(15),
-                    ],
-                    validator: (val) => val == null || !RegExp(r'^\+?\d{8,15}$').hasMatch(val) ? 'Masukkan 8-15 digit nomor telepon yang valid' : null,
                   ),
                   const SizedBox(height: 16),
                 ],

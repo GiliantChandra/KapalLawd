@@ -4,11 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'capture_page.dart';
 
 final List<Map<String, String>> hairstyles = [
-  {'name': 'Buzz Cut', 'image': 'assets/katalog/buzz_cut.jpg'},
+  {'name': 'Bald', 'image': 'assets/katalog/bald.jpg'},
   {'name': 'Edgar Cut', 'image': 'assets/katalog/edgar_cut.jpg'},
   {'name': 'French Crop', 'image': 'assets/katalog/french_crop.jpg'},
   {'name': 'Low Fade', 'image': 'assets/katalog/low_fade.jpg'},
-  {'name': 'Middle Part', 'image': 'assets/katalog/middle_part.jpg'},
+  {'name': 'Warrior Cut', 'image': 'assets/katalog/warrior_cut.jpg'},
   {'name': 'Mullet', 'image': 'assets/katalog/mullet.jpg'},
   {'name': 'Side Part', 'image': 'assets/katalog/side_part.jpg'},
   {'name': 'Taper Fade', 'image': 'assets/katalog/taper_fade.jpg'},

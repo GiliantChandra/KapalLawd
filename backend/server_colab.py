@@ -15,12 +15,18 @@ app.add_middleware(
 )
 
 print("🚀 Sedang Menyiapkan Mesin AI Engine Langsung dari Google Colab...")
+generator = None  # Pastikan variabel selalu ada meskipun loading gagal
+startup_error = None
+
 try:
     import ai_engine
     generator = ai_engine.get_generator()
     print("✅ AI Engine Siaga 100%!")
 except Exception as e:
+    startup_error = str(e)
     print(f"❌ Gagal memuat AI Engine: {e}")
+    import traceback
+    traceback.print_exc()
 
 @app.post("/generate-hairstyle")
 async def generate_hairstyle(
@@ -28,6 +34,13 @@ async def generate_hairstyle(
     style_name: str = Form(...),
     image: UploadFile = File(...)
 ):
+    # Cek apakah generator sudah siap — jika tidak, beri tahu HP dengan jelas
+    if generator is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI Engine belum siap. Error saat startup: {startup_error}. Cek log Colab dan restart server."
+        )
+
     try:
         temp_file_path = f"/tmp/{image.filename}"
         
@@ -48,6 +61,8 @@ async def generate_hairstyle(
             
         return result_data
         
+    except HTTPException:
+        raise  # Re-raise HTTPException tanpa dibungkus lagi
     except Exception as e:
         print(f"Bencana Server Fatal: {e}")
         import traceback

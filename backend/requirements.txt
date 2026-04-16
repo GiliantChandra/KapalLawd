@@ -1,24 +1,18 @@
+# Dependencies untuk server_colab.py + ai_engine.py
+# Install di Google Colab dengan: !pip install -r requirements.txt
+
 fastapi
 uvicorn
 python-multipart
 opencv-python-headless
 numpy
 pillow
-firebase-admin
-requests
-twilio
-python-dotenv
 diffusers
 transformers
 accelerate
 torch
-torchvision
 mediapipe
-dlib
-scikit-learn
-pandas
-matplotlib
-seaborn
-tensorflow
+tensorflow<2.16
+protobuf<4
 keras
-# PyTorch will be installed separately with CUDA support
+nest-asyncio
