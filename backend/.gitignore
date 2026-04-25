@@ -1,0 +1,13 @@
+# File kunci rahasia Firebase — JANGAN di-commit ke GitHub!
+serviceAccountKey.json
+*.h5
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Temp files
+/tmp/
+*.log

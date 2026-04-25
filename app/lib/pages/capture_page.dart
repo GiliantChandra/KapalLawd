@@ -69,14 +69,18 @@ class _CapturePageState extends State<CapturePage> {
       final configSnapshot = await FirebaseFirestore.instance.collection('config').doc('api').get();
       final String apiUrl = (configSnapshot.data()?['url'] ?? "https://forty-pets-vanish.loca.lt/generate-hairstyle").toString().trim();
 
-      
+      // [KEAMANAN] Ambil Firebase ID Token — JWT kriptografis yang unik per sesi,
+      // kadaluarsa otomatis setiap 1 jam. JAUH lebih aman dari static API Key.
+      final idToken = await user.getIdToken(true); // true = paksa refresh token terbaru
+
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       request.maxRedirects = 9999;
-      // Menembus layar peringatan phishing milik Localtunnel
       request.headers['Bypass-Tunnel-Reminder'] = 'true';
       request.headers['User-Agent'] = 'KapalLawd-Mobile';
-      request.fields['user_id'] = user.uid;
+      // Kirim token sebagai Bearer di Authorization header (standar industri OAuth2)
+      request.headers['Authorization'] = 'Bearer $idToken';
       request.fields['style_name'] = widget.styleName;
+      // user_id tidak perlu dikirim lagi — diambil dari token yang sudah terverifikasi
       request.files.add(await http.MultipartFile.fromPath('image', _imageFile!.path));
 
       var streamedResponse = await request.send();

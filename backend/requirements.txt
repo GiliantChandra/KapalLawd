@@ -16,3 +16,5 @@ tensorflow<2.16
 protobuf<4
 keras
 nest-asyncio
+firebase-admin       # Untuk verifikasi Firebase ID Token di server
+scikit-learn         # Untuk training face shape classifier
