@@ -196,7 +196,6 @@ class CatalogPage extends StatelessWidget {
               ),
             ),
 
-            // Nama & deskripsi gaya
             Expanded(
               flex: 3,
               child: Padding(
@@ -204,17 +203,67 @@ class CatalogPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // [IMK: Help & Documentation] — Tombol info untuk membaca teks penuh
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                backgroundColor: const Color(0xFF1E1E2E),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                title: Text(name, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
+                                content: Text(description, style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4)),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Tutup', style: TextStyle(color: Colors.white54)),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => CapturePage(
+                                            styleName: name,
+                                            catalogImagePath: imagePath,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Theme.of(context).colorScheme.primary,
+                                      foregroundColor: Colors.black87,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: const Text('Coba Gaya Ini', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 4.0),
+                            child: Icon(Icons.info_outline_rounded, size: 16, color: Colors.white54),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 3),
-                    // [IMK: Recognition over Recall] — Deskripsi singkat
+                    // [IMK: Recognition over Recall] — Deskripsi singkat (terpotong tidak apa-apa karena ada tombol info)
                     Text(
                       description,
                       style: const TextStyle(

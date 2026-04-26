@@ -226,11 +226,15 @@ class _CapturePageState extends State<CapturePage> {
 
   @override
   Widget build(BuildContext context) {
+    // [IMK: Aesthetic & Minimalist] — Rapikan nama tampilan tanpa mengubah data server
+    final bool isAiMode = widget.styleName == 'AI_RECOMMENDATION';
+    final String displayStyleName = isAiMode ? 'Rekomendasi AI Otomatis' : widget.styleName;
+
     return Scaffold(
       appBar: AppBar(
         // [IMK: Consistency] — Judul halaman dalam Bahasa Indonesia
         title: Text(
-          'Coba ${widget.styleName}',
+          'Coba $displayStyleName',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -243,12 +247,23 @@ class _CapturePageState extends State<CapturePage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    widget.catalogImagePath,
-                    height: 80,
-                    width: 80,
-                    fit: BoxFit.cover,
-                  ),
+                  child: isAiMode 
+                    ? Container(
+                        height: 80,
+                        width: 80,
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                        child: Icon(
+                          Icons.psychology_rounded, 
+                          size: 44, 
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      )
+                    : Image.asset(
+                        widget.catalogImagePath,
+                        height: 80,
+                        width: 80,
+                        fit: BoxFit.cover,
+                      ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -256,11 +271,11 @@ class _CapturePageState extends State<CapturePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Target Style',
-                        style: TextStyle(color: Colors.white60, fontSize: 13),
+                        isAiMode ? 'Mode Cerdas' : 'Target Style',
+                        style: const TextStyle(color: Colors.white60, fontSize: 13),
                       ),
                       Text(
-                        widget.styleName,
+                        displayStyleName,
                         style: GoogleFonts.outfit(
                           fontSize: 22,
                           fontWeight: FontWeight.w600,
