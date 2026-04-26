@@ -42,14 +42,24 @@ class _CapturePageState extends State<CapturePage> {
       );
 
       if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
+        setState(() => _imageFile = File(pickedFile.path));
       }
     } catch (e) {
       if (mounted) {
+        // [IMK: Help Users Recognize Errors] — Pesan ramah, bukan stack trace
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error getting image: $e')),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline_rounded, color: Colors.orange, size: 18),
+                SizedBox(width: 10),
+                Text('Gagal membuka foto. Pastikan izin kamera/galeri sudah diberikan.'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF2D2D3E),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         );
       }
     }
@@ -140,19 +150,87 @@ class _CapturePageState extends State<CapturePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isProcessing = false);
+        // [IMK: Help Users Recognize Errors] — Pesan spesifik sesuai jenis error
+        String pesanError = 'Terjadi kesalahan. Silakan coba lagi.';
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('socketexception') || errStr.contains('connection')) {
+          pesanError = 'Tidak dapat terhubung ke server AI. Pastikan server Colab aktif.';
+        } else if (errStr.contains('timeout')) {
+          pesanError = 'Server tidak merespons. Model AI mungkin sedang loading (±5 menit).';
+        } else if (errStr.contains('401') || errStr.contains('403')) {
+          pesanError = 'Sesi login habis. Silakan keluar dan login kembali.';
+        } else if (errStr.contains('413')) {
+          pesanError = 'Foto terlalu besar. Gunakan foto dengan ukuran lebih kecil.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Terjadi kesalahan: $e')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
+                const SizedBox(width: 10),
+                Expanded(child: Text(pesanError, style: const TextStyle(fontSize: 13))),
+              ],
+            ),
+            backgroundColor: const Color(0xFF2D2D3E),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }
+  }
+
+  // [IMK: Visibility of System Status] — Tampilkan posisi user dalam alur 3 langkah
+  Widget _buildStepIndicator(BuildContext context) {
+    final steps = ['Pilih Foto', 'Proses AI', 'Lihat Hasil'];
+    final currentStep = _imageFile == null ? 0 : 1;
+    final accent = Theme.of(context).colorScheme.primary;
+    return Row(
+      children: List.generate(steps.length, (i) {
+        final isActive = i <= currentStep;
+        final isLast = i == steps.length - 1;
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isActive ? accent : Colors.white12,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      steps[i],
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isActive ? accent : Colors.white30,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              if (!isLast) const SizedBox(width: 4),
+            ],
+          ),
+        );
+      }),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        // [IMK: Consistency] — Judul halaman dalam Bahasa Indonesia
         title: Text(
-          'Try ${widget.styleName}',
+          'Coba ${widget.styleName}',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -195,8 +273,12 @@ class _CapturePageState extends State<CapturePage> {
               ],
             ),
             
-            const SizedBox(height: 48),
-            
+            const SizedBox(height: 16),
+
+            // [IMK: Visibility of System Status] — Step indicator proses
+            _buildStepIndicator(context),
+
+            const SizedBox(height: 24),
             // Photo Area
             Container(
               height: 350,
@@ -221,14 +303,21 @@ class _CapturePageState extends State<CapturePage> {
                       children: [
                         Icon(
                           Icons.face_retouching_natural_rounded,
-                          size: 80,
+                          size: 72,
                           color: Colors.white24,
                         ),
                         const SizedBox(height: 16),
+                        // [IMK: Consistency] — Teks dalam Bahasa Indonesia
                         Text(
-                          'Upload a direct front-facing selfie\nfor the best AI results',
+                          'Unggah selfie wajah menghadap ke depan\nuntuk hasil AI terbaik',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white60),
+                          style: const TextStyle(color: Colors.white60, fontSize: 14),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Pastikan wajah terlihat jelas dan pencahayaan cukup',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white38, fontSize: 12),
                         ),
                       ],
                     ),
@@ -244,7 +333,8 @@ class _CapturePageState extends State<CapturePage> {
                     child: OutlinedButton.icon(
                       onPressed: () => _pickImage(ImageSource.gallery),
                       icon: const Icon(Icons.photo_library_rounded),
-                      label: const Text('Gallery'),
+                      // [IMK: Consistency] — Label Bahasa Indonesia
+                      label: const Text('Dari Galeri'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
@@ -258,7 +348,7 @@ class _CapturePageState extends State<CapturePage> {
                     child: ElevatedButton.icon(
                       onPressed: () => _pickImage(ImageSource.camera),
                       icon: const Icon(Icons.camera_alt_rounded),
-                      label: const Text('Camera'),
+                      label: const Text('Kamera'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.black87,
@@ -276,12 +366,16 @@ class _CapturePageState extends State<CapturePage> {
               // Action when image is selected
               Row(
                 children: [
-                  IconButton(
-                    onPressed: () => setState(() => _imageFile = null),
-                    icon: const Icon(Icons.refresh_rounded),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      padding: const EdgeInsets.all(16),
+                  // [IMK: User Control] — Tombol ganti foto dengan tooltip jelas
+                  Tooltip(
+                    message: 'Ganti foto',
+                    child: IconButton(
+                      onPressed: () => setState(() => _imageFile = null),
+                      icon: const Icon(Icons.refresh_rounded),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.surface,
+                        padding: const EdgeInsets.all(16),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -297,18 +391,26 @@ class _CapturePageState extends State<CapturePage> {
                         ),
                         elevation: 0,
                       ),
+                      // [IMK: Informative Feedback] — Teks berubah saat loading
                       child: _isProcessing
-                        ? const SizedBox(
-                            height: 24, width: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.black87, 
-                              strokeWidth: 2,
-                            ),
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                height: 20, width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.black87,
+                                  strokeWidth: 2.5,
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Text('AI sedang memproses...'),
+                            ],
                           )
                         : Text(
-                            'Generate Hairstyle',
+                            'Terapkan Gaya Rambut',
                             style: GoogleFonts.outfit(
-                              fontSize: 16, 
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

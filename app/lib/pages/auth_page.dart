@@ -29,9 +29,70 @@ class _AuthPageState extends State<AuthPage> {
     return null; // Valid
   }
 
-  void _showSnack(String message) {
+  // [IMK: Help Users Recognize Errors] — Terjemahkan semua kode error Firebase
+  // ke pesan yang mudah dipahami pengguna awam
+  String _getErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      // ── Error Login ──────────────────────────────────────────
+      case 'wrong-password':
+        return 'Password yang Anda masukkan salah. Silakan coba lagi.';
+      case 'user-not-found':
+        return 'Email ini belum terdaftar. Silakan daftar terlebih dahulu.';
+      case 'invalid-credential':
+      case 'invalid-email':
+        return 'Email atau password salah. Periksa kembali dan coba lagi.';
+      case 'user-disabled':
+        return 'Akun ini telah dinonaktifkan. Hubungi dukungan untuk bantuan.';
+      case 'too-many-requests':
+        return 'Terlalu banyak percobaan gagal. Tunggu beberapa menit lalu coba lagi.';
+      case 'network-request-failed':
+        return 'Tidak ada koneksi internet. Periksa jaringan Anda dan coba lagi.';
+      // ── Error Pendaftaran ─────────────────────────────────────
+      case 'email-already-in-use':
+        return 'Email ini sudah digunakan akun lain. Coba login atau gunakan email berbeda.';
+      case 'operation-not-allowed':
+        return 'Pendaftaran dengan email tidak diizinkan saat ini.';
+      case 'weak-password':
+        return e.message ?? 'Password terlalu lemah. Gunakan minimal 6 karakter.';
+      // ── Error Kustom ──────────────────────────────────────────
+      case 'email-not-verified':
+        return 'Email belum diverifikasi. Cek kotak masuk atau folder Spam Anda lalu klik tautan aktivasi.';
+      case 'empty-fields':
+      case 'password-mismatch':
+        return e.message ?? 'Harap lengkapi semua kolom dengan benar.';
+      // ── Fallback ──────────────────────────────────────────────
+      default:
+        return 'Terjadi kesalahan. Silakan coba lagi. (${e.code})';
+    }
+  }
+
+  void _showSnack(String message, {bool isError = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message, textAlign: TextAlign.center)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline_rounded : Icons.check_circle_rounded,
+              color: isError ? Colors.red[300] : Colors.green[300],
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1E1E2E),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: isError ? 5 : 4),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   Future<void> _submitAuth() async {
@@ -94,9 +155,10 @@ class _AuthPageState extends State<AuthPage> {
         // 4. Force Logout agar mereka tidak bisa nembus gerbang utama
         await FirebaseAuth.instance.signOut();
 
-        _showSnack('🎉 PEMBUATAN AKUN SUKSES! Tautan aktivasi telah dikirim ke Email ($email). Harap buka kotak masuk Email/Spam Anda untuk mengaktifkannya!');
-        
-        // Pindah otomatis kembali ke tab Log In
+        _showSnack(
+          '✅ Akun berhasil dibuat! Tautan aktivasi dikirim ke $email. Cek kotak masuk atau folder Spam Anda.',
+          isError: false,
+        );
         setState(() {
           isLogin = true;
           _passwordController.clear();
@@ -105,10 +167,12 @@ class _AuthPageState extends State<AuthPage> {
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      _showSnack('Gagal: ${e.message}');
+      // [IMK: Help Users Recognize Errors] — Tampilkan pesan yang dapat dipahami
+      _showSnack(_getErrorMessage(e));
     } catch (e) {
       if (!mounted) return;
-      _showSnack('Error tak terduga: $e');
+      // [IMK: Error Recovery] — Pesan generik, tidak ekspos detail teknis
+      _showSnack('Terjadi kesalahan tak terduga. Pastikan koneksi internet Anda aktif dan coba lagi.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -245,10 +309,11 @@ class _AuthPageState extends State<AuthPage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    child: _isLoading 
+                    child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.black87)
                       : Text(
-                          isLogin ? 'Sign In' : 'Daftar Sekarang',
+                          // [IMK: Consistency] — Label tombol dalam Bahasa Indonesia
+                          isLogin ? 'Masuk' : 'Daftar Sekarang',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                   ),
@@ -268,7 +333,8 @@ class _AuthPageState extends State<AuthPage> {
                     });
                   },
                   child: Text(
-                    isLogin ? "Belum punya akun? Sign Up" : "Sudah punya akun? Sign In",
+                    // [IMK: Consistency] — Konsisten dalam Bahasa Indonesia
+                    isLogin ? 'Belum punya akun? Daftar' : 'Sudah punya akun? Masuk',
                     style: TextStyle(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),

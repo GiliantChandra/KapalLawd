@@ -1,0 +1,422 @@
+# 🔐 Dokumentasi Keamanan Sistem — StyleSense AI
+> Dibuat untuk keperluan laporan mata kuliah Keamanan Perangkat Lunak
+
+---
+
+## 🧭 Pendahuluan
+
+Sistem keamanan pada aplikasi StyleSense AI dirancang menggunakan pendekatan
+**Defense in Depth (Pertahanan Berlapis)**, yaitu membangun banyak lapisan
+perlindungan secara berurutan sehingga jika satu lapisan berhasil ditembus,
+lapisan berikutnya tetap melindungi sistem.
+
+Seluruh sistem mengikuti prinsip **CIA Triad**:
+- **C — Confidentiality (Kerahasiaan):** Data hanya bisa diakses oleh pihak berwenang
+- **I — Integrity (Integritas):** Data tidak bisa dimanipulasi secara tidak sah
+- **A — Availability (Ketersediaan):** Sistem tetap bisa digunakan dan tidak disalahgunakan
+
+---
+
+## 🗺️ Peta Alur Keamanan (Dari HP ke Server)
+
+```
+[Pengguna buka aplikasi]
+        │
+        ▼
+[LAPISAN 1] ── Registrasi wajib verifikasi email
+        │
+        ▼
+[LAPISAN 2] ── Login hanya boleh jika email sudah diverifikasi
+        │
+        ▼
+[Pengguna menekan tombol Generate]
+        │
+        ▼
+[LAPISAN 3] ── Firebase ID Token dibuat otomatis di HP (berlaku 1 jam)
+        │
+        ▼
+[LAPISAN 4] ── HTTPS mengenkripsi seluruh data dalam perjalanan ke server
+        │
+        ▼
+[Server menerima request]
+        │
+        ▼
+[LAPISAN 5] ── Server verifikasi Firebase ID Token secara kriptografis
+        │
+        ▼
+[LAPISAN 6] ── Rate Limiting: tolak jika lebih dari 5 request/menit
+        │
+        ▼
+[LAPISAN 7] ── Sanitasi teks: tolak karakter berbahaya di nama gaya rambut
+        │
+        ▼
+[LAPISAN 8] ── Validasi tipe file: hanya JPG, PNG, WEBP yang diterima
+        │
+        ▼
+[LAPISAN 9] ── Magic Bytes: verifikasi isi file sungguhan (tidak bisa dipalsukan)
+        │
+        ▼
+[LAPISAN 10] ── Validasi ukuran: tolak file lebih dari 10 MB
+        │
+        ▼
+[LAPISAN 11] ── Nama file di-hash (MD5) untuk mencegah Path Traversal
+        │
+        ▼
+[LAPISAN 12] ── Security Headers ditambahkan di setiap response
+        │
+        ▼
+[LAPISAN 13] ── Error Masking: detail error tidak dikirim ke client
+        │
+        ▼
+[Firebase Firestore]
+        │
+        ▼
+[LAPISAN 14] ── Security Rules: hanya pemilik akun yang bisa akses datanya
+```
+
+---
+
+## 📋 Penjelasan Detail Per Lapisan
+
+---
+
+### LAPISAN 1 — Registrasi dengan Verifikasi Email
+**File:** `auth_page.dart`
+
+**Masalah yang diatasi:** Mencegah pembuatan akun palsu atau bot
+
+**Cara kerja:**
+Ketika pengguna mendaftar, sistem TIDAK langsung mengizinkan masuk.
+Sebaliknya, sistem mengirim sebuah tautan khusus ke email pengguna.
+Pengguna WAJIB mengklik tautan tersebut untuk mengaktifkan akunnya.
+
+**Analogi:** Seperti mendaftar ke sebuah klub eksklusif — Anda harus
+membuktikan bahwa nomor telepon yang Anda daftarkan benar-benar milik Anda.
+
+```dart
+// Kirim tautan verifikasi ke email
+await userCredential.user!.sendEmailVerification();
+
+// Paksa keluar agar pengguna tidak bisa langsung masuk
+await FirebaseAuth.instance.signOut();
+```
+
+---
+
+### LAPISAN 2 — Blokir Login Sebelum Verifikasi
+**File:** `auth_page.dart` + `main.dart`
+
+**Masalah yang diatasi:** Mencegah bypass proses verifikasi
+
+**Cara kerja:**
+Setelah login, sistem memeriksa status verifikasi email.
+Jika belum diklik, pengguna langsung dikeluarkan lagi dan diarahkan
+ke halaman "Tunggu Validasi Email".
+
+```dart
+// Cek status verifikasi saat login
+if (!userCredential.user!.emailVerified) {
+    await FirebaseAuth.instance.signOut(); // Keluarkan paksa
+    throw FirebaseAuthException(
+        code: 'email-not-verified',
+        message: 'Harap klik tautan di email Anda terlebih dahulu.'
+    );
+}
+```
+
+---
+
+### LAPISAN 3 — Firebase ID Token (Menggantikan Static API Key)
+**File:** `capture_page.dart`
+
+**Masalah yang diatasi:** Static API Key tersimpan di APK dan bisa dicuri
+dengan cara men-decompile (membongkar) file APK
+
+**Cara kerja:**
+Setiap kali pengguna menekan tombol Generate, aplikasi meminta Firebase
+untuk membuat sebuah "kartu identitas digital" (ID Token) yang:
+- Unik untuk setiap sesi login
+- Berisi tanda tangan kriptografis yang tidak bisa dipalsukan
+- Otomatis kadaluarsa setelah 1 jam
+
+```dart
+// Minta Firebase buat token baru
+final idToken = await user.getIdToken(true);
+
+// Kirim sebagai Bearer Token (standar industri OAuth2)
+request.headers['Authorization'] = 'Bearer $idToken';
+```
+
+**Perbandingan:**
+
+| | Static API Key (LAMA) | Firebase ID Token (BARU) |
+|---|---|---|
+| Tersimpan di | APK (bisa dibaca siapa saja) | Server Firebase (aman) |
+| Masa berlaku | Selamanya | 1 jam |
+| Bisa dipalsukan | Ya | Tidak (kriptografis) |
+| Unik per pengguna | Tidak | Ya |
+
+---
+
+### LAPISAN 4 — Enkripsi HTTPS
+**Provider:** Localtunnel
+
+**Masalah yang diatasi:** Penyadapan data saat dikirim melalui internet
+
+**Cara kerja:**
+Semua data (foto selfie, token, nama gaya rambut) dienkripsi menggunakan
+protokol HTTPS sebelum dikirim. Bahkan jika ada pihak ketiga yang berhasil
+"menangkap" paket data di jaringan, mereka hanya melihat teks acak yang
+tidak bisa dibaca.
+
+**Analogi:** Seperti mengirim surat dalam amplop terkunci — kurir bisa
+membawa suratnya, tapi tidak bisa membaca isinya.
+
+---
+
+### LAPISAN 5 — Verifikasi Firebase ID Token di Server
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Memastikan request benar-benar datang dari
+pengguna yang sudah login di aplikasi resmi, bukan dari penyerang
+yang meniru request
+
+**Cara kerja:**
+Server menggunakan Firebase Admin SDK untuk memverifikasi tanda tangan
+kriptografis pada token. Jika token valid, server mendapatkan UID
+(identitas) pengguna yang sudah terjamin keasliannya.
+
+```python
+def verify_firebase_token(authorization: str) -> str:
+    id_token = authorization.split("Bearer ")[1]
+    decoded = firebase_auth.verify_id_token(id_token)
+    return decoded['uid']  # UID yang sudah diverifikasi kriptografis
+```
+
+**Analogi:** Seperti petugas perbatasan yang memverifikasi paspor menggunakan
+alat khusus — bukan hanya melihat tampilan luar, tapi memeriksa chip
+dan data kriptografis di dalamnya.
+
+---
+
+### LAPISAN 6 — Rate Limiting (Pembatasan Frekuensi Request)
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Serangan DDoS (pengeboman request) dan
+penyalahgunaan sumber daya GPU yang mahal
+
+**Cara kerja:**
+Setiap pengguna hanya boleh mengirim maksimal 5 request dalam 60 detik.
+Jika melebihi batas, server akan menolak request selanjutnya selama
+60 detik ke depan.
+
+```python
+MAX_REQUESTS_PER_MINUTE = 5
+
+def check_rate_limit(user_id: str):
+    now = time.time()
+    # Hitung request dalam 60 detik terakhir
+    rate_limit_store[user_id] = [t for t in rate_limit_store[user_id] if now - t < 60]
+    if len(rate_limit_store[user_id]) >= MAX_REQUESTS_PER_MINUTE:
+        raise HTTPException(429, "Terlalu banyak request.")
+    rate_limit_store[user_id].append(now)
+```
+
+---
+
+### LAPISAN 7 — Sanitasi Input Teks
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Serangan injeksi melalui parameter teks
+(Injection Attack)
+
+**Cara kerja:**
+Nama gaya rambut yang dikirim pengguna difilter menggunakan ekspresi reguler.
+Hanya karakter huruf, angka, spasi, underscore, dan strip yang diizinkan.
+Karakter seperti `; DROP TABLE`, `../../etc/passwd`, atau `<script>` langsung ditolak.
+
+```python
+ALLOWED_STYLE_PATTERN = re.compile(r'^[a-zA-Z0-9 _\-]{1,50}$')
+
+def validate_style_name(style_name: str):
+    if not ALLOWED_STYLE_PATTERN.match(style_name):
+        raise HTTPException(400, "Nama style mengandung karakter tidak valid.")
+```
+
+---
+
+### LAPISAN 8 — Validasi Tipe File (MIME Type)
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Upload file berbahaya yang menyamar sebagai gambar
+
+**Cara kerja:**
+Server memeriksa header MIME type file yang dikirim. Hanya tipe
+`image/jpeg`, `image/png`, dan `image/webp` yang diterima.
+
+```python
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+```
+
+---
+
+### LAPISAN 9 — Magic Bytes Verification
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Pemalsuan MIME type (penyerang bisa mengubah
+header tapi tidak bisa mengubah isi file)
+
+**Cara kerja:**
+Setiap format gambar memiliki "tanda tangan" berupa byte-byte khusus
+di awal file yang tidak bisa dipalsukan. Server memeriksa byte-byte
+ini secara langsung.
+
+```
+JPEG:  byte awal = FF D8 FF
+PNG:   byte awal = 89 50 4E 47 (= karakter .PNG)
+WEBP:  byte awal = 52 49 46 46 (= karakter RIFF)
+```
+
+```python
+IMAGE_MAGIC_BYTES = [
+    (b'\xff\xd8\xff', 'JPEG'),
+    (b'\x89PNG\r\n\x1a\n', 'PNG'),
+    (b'RIFF', 'WEBP'),
+]
+
+def verify_magic_bytes(content: bytes):
+    for magic, fmt in IMAGE_MAGIC_BYTES:
+        if content[:len(magic)] == magic:
+            return  # Valid
+    raise HTTPException(400, "File bukan gambar valid.")
+```
+
+**Analogi:** Seperti memeriksa sidik jari, bukan hanya kartu identitas.
+Kartu identitas bisa dipalsukan, sidik jari tidak.
+
+---
+
+### LAPISAN 10 — Validasi Ukuran File
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Serangan resource exhaustion dengan mengupload
+file berukuran sangat besar hingga server kehabisan memori
+
+```python
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+if len(content) > MAX_FILE_SIZE_BYTES:
+    raise HTTPException(413, "File terlalu besar. Maksimal 10 MB.")
+```
+
+---
+
+### LAPISAN 11 — Path Traversal Prevention
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Penyerang mengirim nama file seperti
+`../../etc/passwd` untuk menulis ke lokasi sistem yang berbahaya
+
+**Cara kerja:**
+Nama file asli dari pengguna SAMA SEKALI tidak digunakan. Sebagai gantinya,
+server membuat nama file baru menggunakan hash MD5 dari UID pengguna +
+timestamp saat ini.
+
+```python
+# BERBAHAYA (lama):
+temp_file_path = f"/tmp/{image.filename}"  # ← Bisa dimanipulasi!
+
+# AMAN (sekarang):
+safe_filename = hashlib.md5(f"{verified_uid}{time.time()}".encode()).hexdigest()
+temp_file_path = f"/tmp/upload_{safe_filename}.jpg"
+# Contoh hasil: /tmp/upload_a3f8c2d1e9b4a7f6.jpg
+```
+
+---
+
+### LAPISAN 12 — Security HTTP Headers
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Serangan XSS (Cross-Site Scripting) dan Clickjacking
+
+**Cara kerja:**
+Setiap response dari server menyertakan header-header keamanan khusus
+yang memberitahu browser cara memperlakukan konten dengan aman.
+
+```python
+response.headers["X-Content-Type-Options"] = "nosniff"   # Cegah MIME sniffing
+response.headers["X-Frame-Options"] = "DENY"              # Cegah clickjacking
+response.headers["X-XSS-Protection"] = "1; mode=block"   # Cegah XSS
+response.headers["Referrer-Policy"] = "no-referrer"      # Sembunyikan URL asal
+```
+
+---
+
+### LAPISAN 13 — Error Masking
+**File:** `server_colab.py`
+
+**Masalah yang diatasi:** Informasi sensitif tentang struktur sistem
+bocor melalui pesan error
+
+**Cara kerja:**
+Ketika terjadi error, detail teknis (nama file, nama library, stack trace)
+hanya dicatat di log server. Ke pengguna, hanya dikirim pesan umum.
+
+```python
+except Exception as e:
+    print(f"❌ Detail error: {e}")  # Hanya tampil di log Colab
+    traceback.print_exc()           # Hanya tampil di log Colab
+
+    # Pesan yang dikirim ke HP: generik dan tidak memberi petunjuk ke penyerang
+    raise HTTPException(500, "Terjadi kesalahan pada server. Coba beberapa saat lagi.")
+```
+
+---
+
+### LAPISAN 14 — Firebase Security Rules
+**Lokasi:** Firebase Console → Firestore → Rules
+
+**Masalah yang diatasi:** Akses tidak sah ke database pengguna lain
+
+**Cara kerja:**
+Rules ini memastikan bahwa pengguna A tidak bisa membaca atau mengubah
+data pengguna B, meskipun mereka berhasil login.
+
+```javascript
+match /users/{userId}/{document=**} {
+    // Hanya pemilik data yang boleh baca/tulis
+    allow read, write: if request.auth != null
+                       && request.auth.uid == userId;
+}
+
+match /config/{document} {
+    // Semua user login bisa baca, tapi TIDAK ADA yang bisa mengubah
+    allow read: if request.auth != null;
+    allow write: if false;
+}
+```
+
+---
+
+## 📊 Ringkasan Akhir
+
+| Lapisan | Lokasi | Prinsip CIA |
+|---|---|---|
+| 1. Verifikasi Email saat Daftar | `auth_page.dart` | Confidentiality |
+| 2. Blokir Login Belum Verifikasi | `auth_page.dart` + `main.dart` | Confidentiality |
+| 3. Firebase ID Token | `capture_page.dart` | Confidentiality |
+| 4. Enkripsi HTTPS | Localtunnel | Confidentiality |
+| 5. Verifikasi Token di Server | `server_colab.py` | Confidentiality |
+| 6. Rate Limiting | `server_colab.py` | Availability |
+| 7. Sanitasi Input Teks | `server_colab.py` | Integrity |
+| 8. Validasi MIME Type | `server_colab.py` | Integrity |
+| 9. Magic Bytes Verification | `server_colab.py` | Integrity |
+| 10. Validasi Ukuran File | `server_colab.py` | Availability |
+| 11. Path Traversal Prevention | `server_colab.py` | Integrity |
+| 12. Security HTTP Headers | `server_colab.py` | Integrity |
+| 13. Error Masking | `server_colab.py` | Confidentiality |
+| 14. Firebase Security Rules | Firebase Console | Confidentiality |
+
+> **Kesimpulan:** Sistem ini menerapkan 14 lapisan keamanan menggunakan
+> pendekatan Defense in Depth, mencakup seluruh aspek CIA Triad, dan
+> memenuhi standar keamanan aplikasi mobile modern.

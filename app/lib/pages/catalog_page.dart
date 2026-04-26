@@ -1,17 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import 'capture_page.dart';
 
 final List<Map<String, String>> hairstyles = [
-  {'name': 'Bald', 'image': 'assets/katalog/bald.jpg'},
-  {'name': 'Edgar Cut', 'image': 'assets/katalog/edgar_cut.jpg'},
-  {'name': 'French Crop', 'image': 'assets/katalog/french_crop.jpg'},
-  {'name': 'Low Fade', 'image': 'assets/katalog/low_fade.jpg'},
-  {'name': 'Warrior Cut', 'image': 'assets/katalog/warrior_cut.jpg'},
-  {'name': 'Mullet', 'image': 'assets/katalog/mullet.jpg'},
-  {'name': 'Side Part', 'image': 'assets/katalog/side_part.jpg'},
-  {'name': 'Taper Fade', 'image': 'assets/katalog/taper_fade.jpg'},
+  {
+    'name': 'Bald',
+    'image': 'assets/katalog/bald.jpg',
+    'desc': 'Bersih & maskulin, cocok untuk wajah oval dan persegi',
+  },
+  {
+    'name': 'Edgar Cut',
+    'image': 'assets/katalog/edgar_cut.jpg',
+    'desc': 'Garis lurus rapi di atas dahi, tampilan modern & berani',
+  },
+  {
+    'name': 'French Crop',
+    'image': 'assets/katalog/french_crop.jpg',
+    'desc': 'Poni pendek ke depan, santai namun tetap stylish',
+  },
+  {
+    'name': 'Low Fade',
+    'image': 'assets/katalog/low_fade.jpg',
+    'desc': 'Gradasi halus di bagian bawah, tampilan bersih & elegan',
+  },
+  {
+    'name': 'Warrior Cut',
+    'image': 'assets/katalog/warrior_cut.jpg',
+    'desc': 'Tampilan tebal berkarakter, cocok untuk rahang kuat',
+  },
+  {
+    'name': 'Mullet',
+    'image': 'assets/katalog/mullet.jpg',
+    'desc': 'Pendek di depan, panjang di belakang — gaya retro ikonik',
+  },
+  {
+    'name': 'Side Part',
+    'image': 'assets/katalog/side_part.jpg',
+    'desc': 'Belahan samping rapi, tampilan profesional & klasik',
+  },
+  {
+    'name': 'Taper Fade',
+    'image': 'assets/katalog/taper_fade.jpg',
+    'desc': 'Sisi memudar halus, serbaguna untuk berbagai acara',
+  },
 ];
 
 class CatalogPage extends StatelessWidget {
@@ -22,28 +53,78 @@ class CatalogPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Style Catalog',
+          'Katalog Gaya Rambut',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
-      body: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75, // Tinggi gambar lebih panjang sedikit
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
-        itemCount: hairstyles.length,
-        itemBuilder: (context, index) {
-          final style = hairstyles[index];
-          return _buildCatalogItem(context, style['name']!, style['image']!);
-        },
+      body: Column(
+        children: [
+          // [IMK: Help & Documentation] — Petunjuk cara penggunaan
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.touch_app_rounded,
+                    color: Theme.of(context).colorScheme.primary, size: 18),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Ketuk salah satu gaya untuk mencobanya langsung di foto Anda',
+                    style: TextStyle(fontSize: 13, color: Colors.white70),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // [IMK: Visibility] — Jumlah item
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${hairstyles.length} gaya tersedia',
+                style: const TextStyle(fontSize: 13, color: Colors.white38),
+              ),
+            ),
+          ),
+
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.72,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+              ),
+              itemCount: hairstyles.length,
+              itemBuilder: (context, index) {
+                final style = hairstyles[index];
+                return _buildCatalogItem(
+                  context,
+                  style['name']!,
+                  style['image']!,
+                  style['desc']!,
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCatalogItem(BuildContext context, String name, String imagePath) {
+  Widget _buildCatalogItem(
+      BuildContext context, String name, String imagePath, String description) {
     return InkWell(
       onTap: () {
         Navigator.push(
@@ -66,28 +147,83 @@ class CatalogPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Gambar katalog
             Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.asset(
-                  imagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.black12,
-                    child: const Icon(Icons.broken_image, color: Colors.white30),
+              flex: 5,
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(16)),
+                    child: Image.asset(
+                      imagePath,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: Colors.black12,
+                        child: const Icon(Icons.broken_image,
+                            color: Colors.white30),
+                      ),
+                    ),
                   ),
-                ),
+                  // [IMK: Affordance] — Label "Coba" untuk menandakan item bisa diklik
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.touch_app, size: 12, color: Colors.white70),
+                          SizedBox(width: 4),
+                          Text(
+                            'Coba',
+                            style:
+                                TextStyle(fontSize: 10, color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Text(
-                name,
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+
+            // Nama & deskripsi gaya
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    // [IMK: Recognition over Recall] — Deskripsi singkat
+                    Text(
+                      description,
+                      style: const TextStyle(
+                          fontSize: 11, color: Colors.white54),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
           ],
