@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'catalog_page.dart';
 import 'capture_page.dart';
 import 'history_page.dart';
@@ -48,9 +49,6 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    // [IMK: Match Real World] — Sapa dengan nama, bukan kode teknis
-    final displayName = user?.displayName ??
-        user?.email?.split('@').first ?? 'Pengguna';
 
     return Scaffold(
       appBar: AppBar(
@@ -85,13 +83,32 @@ class HomePage extends StatelessWidget {
               style: const TextStyle(fontSize: 16, color: Colors.white70),
             ),
             const SizedBox(height: 4),
-            Text(
-              displayName.toUpperCase(),
-              style: GoogleFonts.outfit(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+            // [IMK: Match Real World] — Sapa dengan nama sungguhan
+            FutureBuilder<DocumentSnapshot>(
+              future: user != null 
+                ? FirebaseFirestore.instance.collection('User').doc(user.uid).get()
+                : Future.value(null),
+              builder: (context, snapshot) {
+                // Fallback awal: displayName Auth atau awalan Email
+                String finalName = user?.displayName ?? user?.email?.split('@').first ?? 'Pengguna';
+                
+                // Jika data nama di Firestore tersedia, timpa fallback
+                if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                  final data = snapshot.data!.data() as Map<String, dynamic>?;
+                  if (data != null && data.containsKey('Nama') && data['Nama'].toString().isNotEmpty) {
+                    finalName = data['Nama'];
+                  }
+                }
+
+                return Text(
+                  finalName.toUpperCase(),
+                  style: GoogleFonts.outfit(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 8),
             Text(

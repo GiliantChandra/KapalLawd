@@ -142,6 +142,9 @@ class _AuthPageState extends State<AuthPage> {
           password: password,
         );
 
+        // Update display name di profil Firebase Auth
+        await userCredential.user!.updateDisplayName(name);
+
         // 2. Simpan Data Metadata (Nama, HP) ke Firestore Database
         await FirebaseFirestore.instance.collection('User').doc(userCredential.user!.uid).set({
           'Email': email,
